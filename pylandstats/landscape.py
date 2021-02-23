@@ -75,6 +75,39 @@ def compute_adjacency_arr(padded_arr: "uint32[:,:]", num_classes: "int"):
             (2, num_cols_adjacency, num_cols_adjacency))
 
 
+def compute_entropy(counts, base=None):
+    """
+    Compute the p log(p) entropy for a set of category count values.
+
+    The counts are given in integer amounts and the proportional abundances
+    are calculated inside the function.
+
+    The base of the logarithm calculates the entropy in different
+    units. Shannon's entropy definition uses base 2 with units of "bits" or
+    "shannons". Base e provides entropy in units of "nats", and base 10
+    calculates entropy in units of "dits" or "bans".
+
+    See https://en.wikipedia.org/wiki/Entropy_(information_theory) for context
+
+    Parameters
+    -----------
+    counts: np.ndarray 1D integer array
+        The number of occurrences of each category
+    base: int
+        The base for logarithm calculation, with default as the natural
+        logarithm (Euler's number).
+
+    Returns
+    --------
+    entropy: float
+    """
+    pcounts = counts / counts.sum()
+    entropy = - np.sum(pcounts * np.log(pcounts))
+    if base:
+        entropy /= np.log(base)
+    return entropy
+
+
 class Landscape:
     """Class representing a raster landscape upon which the landscape metrics
     will be computed
@@ -2453,13 +2486,13 @@ class Landscape:
             )
             return np.nan
 
-        shdi = 0
-        for class_val in self.classes:
-            p_class = (np.sum(self._get_patch_area_ser(class_val)) /
-                       self.landscape_area)
-            shdi += p_class * np.log(p_class)
+        # TODO: This should be absolute counts or area. But this is partial?
+        class_abundances = [self._get_patch_area_ser(cid) for cid
+                            in self.classes]
+        # TODO: Should it return the original definition of log2?
+        # TODO: Update docstring to reflect choice
+        return compute_entropy(class_abundances, base=2)
 
-        return -shdi
 
     ###########################################################################
     # compute metrics data frames
